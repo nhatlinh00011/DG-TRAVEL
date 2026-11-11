@@ -1,0 +1,72 @@
+import { useMemo, useState } from 'react'
+import { Compass, MapPin, Store, Users, UserRound, Search, LocateFixed, Star, Heart, MessageCircle, Plus, Menu, X, Camera, Send, LogOut, Coffee, Mountain, Utensils, BedDouble, Map as MapIcon } from 'lucide-react'
+import { categories, places, type Place } from './data'
+import MapView from './MapView'
+
+type Tab='explore'|'services'|'community'|'profile'
+type Post={id:number;name:string;text:string;time:string;likes:number}
+type Service={id:number;name:string;type:string;area:string;phone:string}
+const starterPosts:Post[]=[
+ {id:1,name:'Minh Anh',text:'Cuối tuần này có ai muốn đi Ba Vì trekking không? Mình đang tìm thêm bạn đồng hành 🌿',time:'15 phút trước',likes:12},
+ {id:2,name:'Travel cùng Linh',text:'Một buổi sáng ở Hồ Gươm. Hà Nội đẹp nhất là lúc phố còn yên bình.',time:'1 giờ trước',likes:28},
+]
+const starterServices:Service[]=[
+ {id:1,name:'Mộc Stay Tam Đảo',type:'Homestay',area:'Tam Đảo, Vĩnh Phúc',phone:'Chưa cập nhật'},
+ {id:2,name:'Bếp Nhà Mình',type:'Nhà hàng',area:'Tây Hồ, Hà Nội',phone:'Chưa cập nhật'},
+]
+function App(){
+ const [tab,setTab]=useState<Tab>('explore')
+ const [query,setQuery]=useState('')
+ const [category,setCategory]=useState('Tất cả')
+ const [selected,setSelected]=useState<Place|null>(null)
+ const [center,setCenter]=useState<[number,number]>([21.0285,105.8542])
+ const [notice,setNotice]=useState('')
+ const [logged,setLogged]=useState(localStorage.getItem('dg-user')||'')
+ const [loginOpen,setLoginOpen]=useState(false)
+ const [loginValue,setLoginValue]=useState('')
+ const [loginMode,setLoginMode]=useState<'email'|'phone'>('email')
+ const [posts,setPosts]=useState<Post[]>(()=>JSON.parse(localStorage.getItem('dg-posts')||'null')||starterPosts)
+ const [services,setServices]=useState<Service[]>(()=>JSON.parse(localStorage.getItem('dg-services')||'null')||starterServices)
+ const [draft,setDraft]=useState('')
+ const [serviceName,setServiceName]=useState('')
+ const [serviceType,setServiceType]=useState('Homestay')
+ const [serviceArea,setServiceArea]=useState('')
+ const [favorites,setFavorites]=useState<number[]>(()=>JSON.parse(localStorage.getItem('dg-favs')||'[]'))
+ const [review,setReview]=useState('')
+ const [reviewStars,setReviewStars]=useState(5)
+ const [reviews,setReviews]=useState<Record<number,string[]>>({})
+ const filtered=useMemo(()=>places.filter(p=>(category==='Tất cả'||p.category===category)&&`${p.name} ${p.area} ${p.category}`.toLowerCase().includes(query.toLowerCase())),[category,query])
+ const savePosts=(next:Post[])=>{setPosts(next);localStorage.setItem('dg-posts',JSON.stringify(next))}
+ const saveServices=(next:Service[])=>{setServices(next);localStorage.setItem('dg-services',JSON.stringify(next))}
+ const login=()=>{if(!loginValue.trim()){setNotice('Vui lòng nhập email hoặc số điện thoại.');return}setLogged(loginValue);localStorage.setItem('dg-user',loginValue);setLoginOpen(false);setNotice('Đăng nhập demo thành công.')}
+ const locate=()=>{if(!navigator.geolocation){setNotice('Trình duyệt không hỗ trợ định vị.');return}navigator.geolocation.getCurrentPosition(pos=>{setCenter([pos.coords.latitude,pos.coords.longitude]);setNotice('Đã cập nhật vị trí của bạn.')},()=>setNotice('Không lấy được vị trí. Hãy cấp quyền GPS trong trình duyệt.'),{enableHighAccuracy:true,timeout:10000})}
+ const toggleFav=(id:number)=>{const next=favorites.includes(id)?favorites.filter(x=>x!==id):[...favorites,id];setFavorites(next);localStorage.setItem('dg-favs',JSON.stringify(next))}
+ const addPost=()=>{if(!logged){setLoginOpen(true);return}if(!draft.trim())return;savePosts([{id:Date.now(),name:logged,text:draft,time:'Vừa xong',likes:0},...posts]);setDraft('')}
+ const addService=()=>{if(!logged){setLoginOpen(true);return}if(!serviceName.trim()||!serviceArea.trim()){setNotice('Nhập tên dịch vụ và khu vực.');return}saveServices([{id:Date.now(),name:serviceName,type:serviceType,area:serviceArea,phone:'Liên hệ qua DG Travel'},...services]);setServiceName('');setServiceArea('');setNotice('Đã đăng dịch vụ demo.')}
+ const addReview=()=>{if(!logged){setLoginOpen(true);return}if(!selected||!review.trim())return;setReviews({...reviews,[selected.id]:[...(reviews[selected.id]||[]),`${logged}: ${'★'.repeat(reviewStars)} – ${review}`]});setReview('')}
+ const nav=[{id:'explore' as Tab,label:'Khám phá',icon:Compass},{id:'services' as Tab,label:'Dịch vụ',icon:Store},{id:'community' as Tab,label:'Cộng đồng',icon:Users},{id:'profile' as Tab,label:'Cá nhân',icon:UserRound}]
+ return <div className="app-shell">
+  <header className="topbar"><div className="brand" onClick={()=>setTab('explore')}><span className="brand-mark"><MapPin size={21}/></span><span>DG <b>TRAVEL</b><small>Đi để trải nghiệm</small></span></div><div className="top-actions"><span className="desktop-tag">Khám phá điểm đến quanh bạn</span><button className="avatar" onClick={()=>logged?setTab('profile'):setLoginOpen(true)}>{logged?logged[0].toUpperCase():'Đ'}</button></div></header>
+  <main className="main">
+   <nav className="desktop-nav">{nav.map(n=><button key={n.id} className={tab===n.id?'active':''} onClick={()=>setTab(n.id)}><n.icon size={18}/>{n.label}</button>)}</nav>
+   {tab==='explore'&&<section>
+    <div className="hero"><div><span className="eyebrow">YOUR NEXT JOURNEY STARTS HERE</span><h1>Đi đâu hôm nay?</h1><p>Khám phá những điểm đến thú vị, trải nghiệm địa phương và chia sẻ hành trình của bạn.</p><button className="primary" onClick={locate}><LocateFixed size={17}/> Tìm quanh vị trí của tôi</button></div><div className="hero-art"><img src="https://images.unsplash.com/photo-1470770841072-f978cf4d019e?w=1000" alt="Phong cảnh núi"/></div></div>
+    <div className="section-heading"><div><h2>Khám phá quanh bạn</h2><p>Địa điểm gợi ý · Có thể thay đổi theo vị trí GPS</p></div><span className="live-dot">BẢN ĐỒ TRỰC TUYẾN</span></div>
+    <div className="search-row"><div className="searchbox"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Tìm địa điểm, quán cafe, món ăn..."/></div><button className="icon-btn" title="Định vị" onClick={locate}><LocateFixed size={19}/></button></div>
+    <div className="chips">{categories.map(c=><button key={c} className={category===c?'chip selected':'chip'} onClick={()=>setCategory(c)}>{c}</button>)}</div>
+    <div className="map-panel"><div className="map-title"><span><MapIcon size={17}/> Bản đồ địa điểm</span><small>© OpenStreetMap contributors</small></div><MapView items={filtered} center={center} onSelect={setSelected}/></div>
+    <div className="place-grid">{filtered.map(p=><article className="place-card" key={p.id} onClick={()=>setSelected(p)}><div className="place-image"><img src={p.image} alt={p.name}/><span className="category-tag">{p.category}</span><button className={'heart '+(favorites.includes(p.id)?'hearted':'')} onClick={e=>{e.stopPropagation();toggleFav(p.id)}}><Heart size={17} fill={favorites.includes(p.id)?'currentColor':'none'}/></button></div><div className="place-info"><h3>{p.name}</h3><p className="muted"><MapPin size={13}/>{p.area}</p><div className="place-foot"><span><Star size={14} fill="#f5ad36" color="#f5ad36"/> {p.rating} <small>({p.reviews})</small></span><b>{p.price}</b></div></div></article>)}</div>
+    {filtered.length===0&&<div className="empty">Chưa tìm thấy địa điểm phù hợp.</div>}
+   </section>}
+   {tab==='services'&&<section className="page-section"><div className="page-title"><span className="eyebrow">LOCAL BUSINESS</span><h1>Dịch vụ du lịch</h1><p>Kết nối khách du lịch với homestay, khách sạn, nhà hàng và dịch vụ địa phương.</p></div><div className="service-layout"><div className="service-list">{services.map(s=><article className="service-card" key={s.id}><div className="service-icon"><Store/></div><div><span className="category-tag inline-tag">{s.type}</span><h3>{s.name}</h3><p className="muted"><MapPin size={14}/>{s.area}</p><small className="muted">{s.phone}</small></div><button className="outline small" onClick={()=>setNotice('Tính năng liên hệ sẽ được kết nối ở phiên bản tiếp theo.')}>Liên hệ</button></article>)}</div><div className="form-card"><h2><Plus size={19}/> Đăng ký dịch vụ</h2><p className="muted">Dành cho chủ cơ sở kinh doanh.</p><label>Tên cơ sở<input value={serviceName} onChange={e=>setServiceName(e.target.value)} placeholder="VD: Mộc Stay"/></label><label>Loại hình<select value={serviceType} onChange={e=>setServiceType(e.target.value)}>{['Homestay','Khách sạn','Nhà hàng','Cafe','Thuê xe','Tour du lịch','Khác'].map(x=><option>{x}</option>)}</select></label><label>Khu vực / địa chỉ<input value={serviceArea} onChange={e=>setServiceArea(e.target.value)} placeholder="VD: Tam Đảo, Vĩnh Phúc"/></label><button className="primary full" onClick={addService}>Đăng dịch vụ</button><small className="muted">Bản demo lưu trên trình duyệt hiện tại.</small></div></div></section>}
+   {tab==='community'&&<section className="page-section narrow"><div className="page-title"><span className="eyebrow">TRAVEL COMMUNITY</span><h1>Cộng đồng DG Travel</h1><p>Chia sẻ hành trình, hỏi kinh nghiệm và tìm bạn đồng hành.</p></div><div className="composer"><div className="composer-head"><div className="avatar soft">{logged?logged[0].toUpperCase():'Đ'}</div><b>{logged||'Khách tham quan'}</b></div><textarea value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Bạn đang có trải nghiệm du lịch nào muốn chia sẻ?"/><div className="composer-bottom"><span className="muted"><Camera size={16}/> Chia sẻ ảnh sẽ được bổ sung</span><button className="primary" onClick={addPost}><Send size={16}/> Đăng bài</button></div></div><div className="feed">{posts.map(p=><article className="post-card" key={p.id}><div className="post-head"><div className="avatar soft">{p.name[0]?.toUpperCase()}</div><div><b>{p.name}</b><small className="muted">{p.time}</small></div></div><p>{p.text}</p><div className="post-actions"><button onClick={()=>savePosts(posts.map(x=>x.id===p.id?{...x,likes:x.likes+1}:x))}><Heart size={17}/> {p.likes} thích</button><button onClick={()=>setNotice('Bình luận bài viết sẽ được hoàn thiện trong giai đoạn tiếp theo.')}><MessageCircle size={17}/> Bình luận</button><button onClick={()=>setNotice('Chia sẻ bài viết sẽ được bổ sung.')}><Send size={16}/> Chia sẻ</button></div></article>)}</div></section>}
+   {tab==='profile'&&<section className="page-section narrow"><div className="page-title"><span className="eyebrow">MY DG TRAVEL</span><h1>Tài khoản của tôi</h1><p>Quản lý hồ sơ, nội dung và địa điểm yêu thích.</p></div><div className="profile-card"><div className="profile-avatar">{logged?logged[0].toUpperCase():'Đ'}</div><div><h2>{logged||'Khách tham quan'}</h2><p className="muted">{logged?'Tài khoản demo':'Bạn chưa đăng nhập'}</p></div>{logged?<button className="outline" onClick={()=>{setLogged('');localStorage.removeItem('dg-user')}}><LogOut size={16}/> Đăng xuất</button>:<button className="primary" onClick={()=>setLoginOpen(true)}>Đăng nhập</button>}</div><div className="profile-stats"><div><b>{posts.filter(p=>p.name===logged).length}</b><span>Bài viết</span></div><div><b>{favorites.length}</b><span>Yêu thích</span></div><div><b>{services.filter(s=>s.phone==='Liên hệ qua DG Travel').length}</b><span>Dịch vụ demo</span></div></div><h2 className="subheading">Địa điểm đã lưu</h2><div className="saved-list">{places.filter(p=>favorites.includes(p.id)).map(p=><button key={p.id} onClick={()=>setSelected(p)}>{p.name}<span>{p.area}</span></button>)}{favorites.length===0&&<p className="muted">Bạn chưa lưu địa điểm nào.</p>}</div><div className="note-box">DG TRAVEL phiên bản MVP. Dữ liệu demo hiện được lưu trong trình duyệt này, chưa đồng bộ giữa các thiết bị.</div></section>}
+  </main>
+  <nav className="mobile-nav">{nav.map(n=><button key={n.id} className={tab===n.id?'active':''} onClick={()=>setTab(n.id)}><n.icon size={20}/><span>{n.label}</span></button>)}</nav>
+  {selected&&<div className="modal-backdrop" onClick={()=>setSelected(null)}><div className="detail-modal" onClick={e=>e.stopPropagation()}><button className="close" onClick={()=>setSelected(null)}><X/></button><img className="detail-image" src={selected.image} alt={selected.name}/><div className="detail-content"><span className="category-tag inline-tag">{selected.category}</span><h2>{selected.name}</h2><p className="muted"><MapPin size={15}/>{selected.area}</p><p>{selected.description}</p><div className="detail-rating"><Star fill="#f5ad36" color="#f5ad36"/> {selected.rating} ({selected.reviews} đánh giá mẫu) <b>{selected.price}</b></div><button className="outline full" onClick={()=>{setCenter([selected.lat,selected.lng]);setSelected(null)}}><MapIcon size={16}/> Xem trên bản đồ</button><h3>Đánh giá & bình luận</h3>{(reviews[selected.id]||[]).map((r,i)=><p className="review" key={i}>{r}</p>)}<div className="review-form"><select value={reviewStars} onChange={e=>setReviewStars(Number(e.target.value))}>{[5,4,3,2,1].map(x=><option value={x}>{x} sao</option>)}</select><input value={review} onChange={e=>setReview(e.target.value)} placeholder="Chia sẻ trải nghiệm của bạn..."/><button className="primary" onClick={addReview}>Gửi</button></div><small className="muted">Đánh giá mẫu chỉ để minh hoạ; bình luận mới lưu trong phiên chạy này.</small></div></div></div>}
+  {loginOpen&&<div className="modal-backdrop" onClick={()=>setLoginOpen(false)}><div className="login-modal" onClick={e=>e.stopPropagation()}><button className="close" onClick={()=>setLoginOpen(false)}><X/></button><div className="login-logo"><MapPin size={25}/></div><h2>Chào mừng đến DG TRAVEL</h2><p className="muted">Đăng nhập để đánh giá, chia sẻ và kết nối.</p><div className="login-tabs"><button className={loginMode==='email'?'chosen':''} onClick={()=>setLoginMode('email')}>Gmail / Email</button><button className={loginMode==='phone'?'chosen':''} onClick={()=>setLoginMode('phone')}>Số điện thoại</button></div><input value={loginValue} onChange={e=>setLoginValue(e.target.value)} placeholder={loginMode==='email'?'Nhập email của bạn':'Nhập số điện thoại'}/><button className="primary full" onClick={login}>Tiếp tục</button><small className="muted">Đăng nhập mô phỏng cho bản thử nghiệm, chưa gửi OTP hoặc email xác thực.</small></div></div>}
+  {notice&&<div className="toast" onClick={()=>setNotice('')}>{notice}<button onClick={()=>setNotice('')}><X size={15}/></button></div>}
+  <footer>© 2026 DG TRAVEL · Khám phá, trải nghiệm và kết nối <span>Map data © OpenStreetMap contributors</span></footer>
+ </div>
+}
+export default App
